@@ -51,13 +51,13 @@ const CodeEditor = () => {
   };
 
   return (
-    <div className="h-[80vh]">
+    <div className="h-[80vh] ">
       <div className="flex flex-col">
         <div className="mb-2 flex justify-between ">
           <LanguageSelector language={language} setLanguage={handleLanguageChange} />
           <button
             onClick={executeCode}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md"
+            className="px-4 py-2 bg-slate-500 hover:bg-slate-600 text-white rounded-md"
           >
             Run Code
           </button>
