@@ -18,6 +18,7 @@ const CodeEditor = () => {
   const [output, setOutput] = useState<string>("");
   const [language, setLanguage] = useState<string>("javascript"); // Default language
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isError, setIsError] = useState<boolean>(false);
   const [code, setCode] = useState<any>(CODE_SNIPPETS[language]);
 
   const handleLanguageChange = (value: string) => {
@@ -43,10 +44,12 @@ const CodeEditor = () => {
           }]
       });
       setOutput(response.data.run.output);
+      setIsError(response.data.run.stderr.length > 0);
       setIsLoading(false);
     } catch (error: any) {
       setIsLoading(false);
-      setOutput(error.response.data.error || error.message || "An error occurred");
+      setIsError(true);
+      setOutput(error.response.run.output || error.message || "An error occurred");
     }
   };
 
@@ -79,7 +82,7 @@ const CodeEditor = () => {
             />
           </div>
           <div className="lg:w-1/2">
-            <Output output={output} loading={isLoading} />
+            <Output output={output} loading={isLoading} error={isError} />
           </div>
         </div>
       </div>

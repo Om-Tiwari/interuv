@@ -1,14 +1,26 @@
-import React from 'react'
+import React from 'react';
 
-export default function Output({ output, loading }: { output: string, loading: boolean }) {
+type OutputProps = {
+    output: string;
+    loading: boolean;
+    error: boolean;
+};
+
+export default function Output({ output, loading, error }: OutputProps) {
+    const containerClasses = `h-[70vh] bg-[#1e1e1e] border rounded-md ${error ? 'border-red-500' : 'border-gray-700'
+        }`;
+
+    const textClasses = `p-4 ${error ? 'text-red-500' : 'text-white'}`;
+
+    const displayText = loading
+        ? 'Compiling...'
+        : output || 'Click "Run Code" to see the output here';
+
     return (
         <div>
-            <div className="h-[70vh] bg-[#1e1e1e] border border-gray-700 rounded-md">
-                <pre className="text-slate-300 p-4">
-                    {output ? !loading && output : !loading && `Click "Run Code" to see the output here`}
-                    {loading && "Compiling..."}
-                </pre>
+            <div className={containerClasses}>
+                <pre className={textClasses}>{displayText}</pre>
             </div>
         </div>
-    )
+    );
 }
