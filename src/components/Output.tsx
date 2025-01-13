@@ -1,9 +1,14 @@
 import React from 'react'
 
-export default function Output() {
+export default function Output({ output, loading }: { output: string, loading: boolean }) {
     return (
         <div>
-            <h1 className="text-2xl font-bold mb-4">Output</h1>
+            <div className="h-[70vh] bg-[#1e1e1e] border border-gray-700 rounded-md">
+                <pre className="text-slate-300 p-4">
+                    {output ? !loading && output : !loading && `Click "Run Code" to see the output here`}
+                    {loading && "Compiling..."}
+                </pre>
+            </div>
         </div>
     )
 }
