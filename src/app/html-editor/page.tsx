@@ -2,6 +2,7 @@
 import React, { useState } from "react";
 import MonacoEditor from "@monaco-editor/react";
 import HtmlOutput from "@/components/HtmlOutput";
+import FigmaEmbedSection from "@/components/FigmaEmbedSection";
 
 const Page = () => {
     const [html, setHtml] = useState("");
@@ -17,25 +18,28 @@ const Page = () => {
     return (
         <div className="flex flex-col h-screen bg-gray-900 text-white">
             {/* Tabs */}
-            <div className="flex space-x-4 p-4 bg-gray-800">
-                {["html", "css", "javascript"].map((tab) => (
-                    <button
-                        key={tab}
-                        className={`px-4 py-2 rounded ${activeTab === tab
-                            ? "bg-blue-600 text-white"
-                            : "bg-gray-700 hover:bg-gray-600"
-                            }`}
-                        onClick={() => setActiveTab(tab)}
-                    >
-                        {tab.toUpperCase()}
-                    </button>
-                ))}
-            </div>
 
             {/* Editor Section */}
-            <div className="flex-1 grid grid-cols-2 gap-4 p-4">
+            <div className="flex-1 grid grid-cols-3 gap-4 p-4">
+                {/* Figma Section */}
+                <FigmaEmbedSection />
+
                 {/* Monaco Editor */}
                 <div className="bg-gray-800 rounded overflow-hidden">
+                    <div className="flex space-x-4 p-4 bg-gray-800">
+                        {["html", "css", "javascript"].map((tab) => (
+                            <button
+                                key={tab}
+                                className={`px-4 py-2 rounded ${activeTab === tab
+                                    ? "bg-blue-600 text-white"
+                                    : "bg-gray-700 hover:bg-gray-600"
+                                    }`}
+                                onClick={() => setActiveTab(tab)}
+                            >
+                                {tab.toUpperCase()}
+                            </button>
+                        ))}
+                    </div>
                     <MonacoEditor
                         height="100%"
                         language={activeTab}
