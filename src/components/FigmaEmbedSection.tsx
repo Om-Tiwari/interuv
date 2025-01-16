@@ -1,7 +1,8 @@
 import React, { useState } from "react";
+import { Input } from "./ui/input";
 
 const FigmaEmbedSection = () => {
-    const [figmaLink, setFigmaLink] = useState("");
+    const [figmaLink, setFigmaLink] = useState("https://www.figma.com/design/8EkpxlnTHnEqvTeJ31pFYs/Fitness-App-Design-(Community)?node-id=1-1978&t=9SvVtbIRM0RuVUAD-0");
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setFigmaLink(e.target.value);
@@ -16,18 +17,16 @@ const FigmaEmbedSection = () => {
     };
 
     return (
-        <div className="p-6 bg-gray-900">
-            <h2 className="text-xl font-bold mb-4">Figma</h2>
+        <div className="p-6">
+            <h2 className="text-4xl font-bold mb-4">Figma</h2>
 
-            <input
-                type="text"
-                className="w-full p-2 border rounded mb-4 text-black"
-                placeholder="Paste your Figma link here"
+            <Input
+                placeholder="Enter Figma link"
                 value={figmaLink}
                 onChange={handleInputChange}
             />
 
-            {figmaLink && getEmbedLink() ? (
+            {figmaLink && getEmbedLink() && (
                 <div className="mt-4">
                     <iframe
                         className="w-full h-96 border rounded"
@@ -35,8 +34,6 @@ const FigmaEmbedSection = () => {
                         allowFullScreen
                     ></iframe>
                 </div>
-            ) : (
-                <p className="text-gray-600">Enter a valid Figma link to preview the design.</p>
             )}
         </div>
     );
