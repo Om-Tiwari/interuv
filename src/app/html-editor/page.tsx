@@ -1,28 +1,14 @@
 "use client"
 import React, { useState } from "react";
 import MonacoEditor from "@monaco-editor/react";
+import HtmlOutput from "@/components/HtmlOutput";
 
 const Page = () => {
     const [html, setHtml] = useState("");
     const [css, setCss] = useState("");
     const [javascript, setJavascript] = useState("");
     const [activeTab, setActiveTab] = useState("html");
-
-    const generateOutput = () => {
-        return `
-      <html>
-        <head>
-          <style>${css}</style>
-        </head>
-        <body>
-          ${html}
-          <script>${javascript}</script>
-        </body>
-      </html>
-    `;
-    };
-
-    const handleEditorChange = (value) => {
+    const handleEditorChange = (value: any) => {
         if (activeTab === "html") setHtml(value);
         else if (activeTab === "css") setCss(value);
         else if (activeTab === "javascript") setJavascript(value);
@@ -72,14 +58,7 @@ const Page = () => {
                 </div>
 
                 {/* Output Display */}
-                <div className="bg-gray-800 rounded overflow-hidden">
-                    <iframe
-                        title="output"
-                        srcDoc={generateOutput()}
-                        sandbox="allow-scripts allow-same-origin"
-                        className="w-full h-full border-none"
-                    />
-                </div>
+                <HtmlOutput html={html} css={css} javascript={javascript} />
             </div>
         </div>
     );
