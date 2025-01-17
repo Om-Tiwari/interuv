@@ -6,7 +6,7 @@ export const GET = async (req: Request) => {
   const { searchParams } = new URL(req.url);
   const fileId = searchParams.get("fileId");
   const nodeId = searchParams.get("nodeId");
-  const token = "TOken"; // Replace with your Figma API token
+  const token = "figd_iF9CUSP-3UPvd4KZYQuKvkGJDfuAiFVPt1Au69Uw"; // Replace with your Figma API token
 
   try {
     // Fetch the image URL from the Figma API

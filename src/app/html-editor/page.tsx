@@ -9,6 +9,9 @@ const Page = () => {
     const [html, setHtml] = useState("<div>test</div>");
     const [css, setCss] = useState("body { color: white; }");
     const [javascript, setJavascript] = useState("document.body.style.backgroundColor = 'black';");
+    const [figmaLink, setFigmaLink] = useState(
+        "https://www.figma.com/design/8EkpxlnTHnEqvTeJ31pFYs/Fitness-App-Design-(Community)?node-id=1-1978&t=9SvVtbIRM0RuVUAD-0"
+    );
     const [activeTab, setActiveTab] = useState("html");
     const handleEditorChange = (value: any) => {
         if (activeTab === "html") setHtml(value);
@@ -23,7 +26,7 @@ const Page = () => {
             <div className="flex-1 grid grid-cols-[30%_30%_39%] gap-2 p-4 overflow-auto">
                 {/* Figma Section */}
                 <div className="overflow-auto border border-gray-800 rounded p-2">
-                    <FigmaEmbedSection />
+                    <FigmaEmbedSection figmaLink={figmaLink} setFigmaLink={setFigmaLink} />
                 </div>
 
                 {/* Monaco Editor */}
@@ -65,7 +68,7 @@ const Page = () => {
 
                 {/* Output Display */}
                 <div className="overflow-auto rounded p-2 border border-gray-800">
-                    <HtmlOutput html={html} css={css} javascript={javascript} />
+                    <HtmlOutput html={html} css={css} javascript={javascript} figma={figmaLink} />
                 </div>
             </div>
 
