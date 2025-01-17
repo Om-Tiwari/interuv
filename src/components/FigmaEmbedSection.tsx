@@ -1,20 +1,57 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Input } from "./ui/input";
 
 const FigmaEmbedSection = () => {
-    const [figmaLink, setFigmaLink] = useState("https://www.figma.com/design/8EkpxlnTHnEqvTeJ31pFYs/Fitness-App-Design-(Community)?node-id=1-1978&t=9SvVtbIRM0RuVUAD-0");
+    const [figmaLink, setFigmaLink] = useState(
+        "https://www.figma.com/design/8EkpxlnTHnEqvTeJ31pFYs/Fitness-App-Design-(Community)?node-id=1-1978&t=9SvVtbIRM0RuVUAD-0"
+    );
+    const [imageUrl, setImageUrl] = useState<any>(null);
+    const [error, setError] = useState<string | null>(null);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setFigmaLink(e.target.value);
     };
 
     const getEmbedLink = () => {
-        // Validate and convert the Figma link to an embed URL
         if (figmaLink.includes("figma.com")) {
             return `https://www.figma.com/embed?embed_host=share&url=${figmaLink}`;
         }
         return "";
     };
+
+    const extractIdsFromFigmaLink = () => {
+        const match = figmaLink.match(/file\/([^/]+).*node-id=([^&]+)/);
+        if (match) {
+            return { fileId: match[1], nodeId: match[2] };
+        }
+        return null;
+    };
+
+    const fetchImage = async () => {
+        const fileId = "8EkpxlnTHnEqvTeJ31pFYs"
+        const nodeId = "1-1978"
+
+        try {
+            const response = await fetch(`/api/figmaImage?fileId=${fileId}&nodeId=${nodeId}`);
+            const data = await response.json();
+            console.log("data", Object.values(data?.imageUrl)[0]);
+
+            if (data.imageUrl) {
+                setImageUrl(Object.values(data?.imageUrl)[0]);
+                setError(null);
+            } else {
+                setError(data.error || "Failed to fetch image.");
+            }
+        } catch (err) {
+            setError("Error fetching image.");
+        }
+    };
+
+    useEffect(() => {
+        if (figmaLink.includes("figma.com")) {
+            fetchImage();
+        }
+    }, [figmaLink]);
 
     return (
         <div className="p-6">
@@ -33,6 +70,15 @@ const FigmaEmbedSection = () => {
                         src={getEmbedLink()}
                         allowFullScreen
                     ></iframe>
+                </div>
+            )}
+
+            {error && <p className="text-red-500 mt-4">{error}</p>}
+
+            {imageUrl && (
+                <div className="mt-4">
+                    <h3 className="text-xl font-semibold">Rendered Image:</h3>
+                    <img src={imageUrl} alt="Figma Rendered Frame" className="border rounded" />
                 </div>
             )}
         </div>
