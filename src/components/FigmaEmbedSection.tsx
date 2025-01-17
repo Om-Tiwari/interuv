@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Input } from "./ui/input";
+import { CodeBlock } from "./ui/code-block";
 
 const FigmaEmbedSection = () => {
     const [figmaLink, setFigmaLink] = useState(
@@ -86,7 +87,13 @@ const FigmaEmbedSection = () => {
                 </div>
             )}
 
-
+            <CodeBlock
+                code={`<iframe src={getEmbedLink()} allowFullScreen></iframe> dasjhjhda akjbbf uhgaw nfabuij fdauijbaf jbuhawf /n uiwqarhb 
+                    sdgfasfgagaga asdfhjhjfa 
+                    shujadfjhdajh jkad kj`}
+                language="svg"
+                filename="figma-embed.html"
+            />
         </div>
     );
 };
