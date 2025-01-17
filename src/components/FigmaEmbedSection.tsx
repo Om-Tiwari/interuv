@@ -19,17 +19,21 @@ const FigmaEmbedSection = () => {
         return "";
     };
 
-    const extractIdsFromFigmaLink = () => {
-        const match = figmaLink.match(/file\/([^/]+).*node-id=([^&]+)/);
+    function extractFigmaIds(url: string) {
+        const regex = /https:\/\/www\.figma\.com\/design\/([a-zA-Z0-9]+)\/[^\?]+\?node-id=([0-9\-]+)/;
+        const match = url.match(regex);
+
         if (match) {
-            return { fileId: match[1], nodeId: match[2] };
+            const fileId = match[1];
+            const nodeId = match[2];
+            return { fileId, nodeId };
+        } else {
+            return null; // Return null if the URL does not match the expected format
         }
-        return null;
-    };
+    }
 
     const fetchImage = async () => {
-        const fileId = "8EkpxlnTHnEqvTeJ31pFYs"
-        const nodeId = "1-1978"
+        const { fileId, nodeId } = extractFigmaIds(figmaLink);
 
         try {
             const response = await fetch(`/api/figmaImage?fileId=${fileId}&nodeId=${nodeId}`);
@@ -81,6 +85,8 @@ const FigmaEmbedSection = () => {
                     <img src={imageUrl} alt="Figma Rendered Frame" className="border rounded" />
                 </div>
             )}
+
+
         </div>
     );
 };
