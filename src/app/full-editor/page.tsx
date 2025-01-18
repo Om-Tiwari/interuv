@@ -8,26 +8,27 @@ export default function Home() {
     StackBlitzSDK.embedProject(
       "my-div", // ID of the container element
       {
-        title: "React + Tailwind CSS with Vite",
-        description: "A React project with Tailwind CSS using Vite",
+        title: "React + Tailwind CSS with Vite (TypeScript)",
+        description:
+          "A React project with Tailwind CSS using Vite and TypeScript",
         template: "node", // Use Node.js template for Vite
         files: {
-          // Required files for a React + Tailwind CSS project with Vite
+          // Required files for a React + Tailwind CSS project with Vite and TypeScript
           "index.html": `<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>React + Tailwind CSS with Vite</title>
+    <title>React + Tailwind CSS with Vite (TypeScript)</title>
   </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
+    <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>`,
-          "src/main.jsx": `import React from 'react';
+          "src/main.tsx": `import React from 'react';
 import ReactDOM from 'react-dom/client';
-import App from './App.jsx';
+import App from './App.tsx';
 import './index.css';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
@@ -35,13 +36,17 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     <App />
   </React.StrictMode>
 );`,
-          "src/App.jsx": `export default function App() {
+          "src/App.tsx": `import React from 'react';
+
+const App: React.FC = () => {
   return (
     <div className="bg-blue-500 text-white p-4">
-      <h1>Hello, Tailwind CSS with Vite!</h1>
+      <h1>Hello, Tailwind CSS with Vite and TypeScript!</h1>
     </div>
   );
-}`,
+};
+
+export default App;`,
           "src/index.css": `@tailwind base;
 @tailwind components;
 @tailwind utilities;`,
@@ -61,14 +66,44 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     autoprefixer: {},
   },
 };`,
-          "vite.config.js": `import { defineConfig } from 'vite';
+          "vite.config.ts": `import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
 export default defineConfig({
   plugins: [react()],
+  server: {
+    hmr: true, // Enable HMR
+    watch: {
+      usePolling: true, // Ensure file changes are detected
+    },
+  },
 });`,
+          "tsconfig.json": `{
+  "compilerOptions": {
+    "target": "ES2020",
+    "useDefineForClassFields": true,
+    "lib": ["DOM", "DOM.Iterable", "ESNext"],
+    "allowJs": false,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+    "module": "ESNext",
+    "moduleResolution": "Node",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx"
+  },
+  "include": ["src"]
+}`,
+          "stackblitz.config.js": `module.exports = {
+  installDependencies: true,
+  startCommand: 'vite',
+};`,
           "package.json": JSON.stringify({
-            name: "react-tailwind-vite",
+            name: "react-tailwind-vite-ts",
             version: "1.0.0",
             scripts: {
               dev: "vite",
@@ -85,19 +120,22 @@ export default defineConfig({
             devDependencies: {
               vite: "^4.4.5",
               "@vitejs/plugin-react": "^4.0.0",
+              typescript: "^5.0.0",
+              "@types/react": "^18.2.0",
+              "@types/react-dom": "^18.2.0",
             },
           }),
         },
       },
       {
-        openFile: "src/App.jsx", // Open this file by default
+        openFile: "src/App.tsx", // Open this file by default
       }
     );
   }, []);
 
   return (
     <div>
-      <h1>React + Tailwind CSS with Vite Sandbox</h1>
+      <h1>React + Tailwind CSS with Vite (TypeScript) Sandbox</h1>
       <div id="my-div" className="h-svh"></div>
     </div>
   );
