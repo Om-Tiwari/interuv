@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import Editor from "./Editor";
 import FigmaEditor from "./FigmaEditor";
 import ReactEditor from "./ReactEditor";
+import Image from "next/image";
 
 export function Sidebar() {
   const [sidebarOpen, setSidebarOpen] = React.useState(true);
@@ -32,7 +33,14 @@ export function Sidebar() {
             )}
           >
             <div className="flex items-center justify-between w-full mb-8">
-              <h1 className="text-3xl mt-3 font-bold text-gray-800 dark:text-white">
+              <h1 className="text-3xl mt-3 font-bold text-gray-800 dark:text-white flex flex-row gap-2">
+                <Image
+                  src="/icon.png"
+                  width={40}
+                  height={50}
+                  alt="logo"
+                  className="rounded-lg"
+                />
                 PixelMatch
               </h1>
             </div>
