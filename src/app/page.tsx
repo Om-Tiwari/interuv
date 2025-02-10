@@ -1,7 +1,10 @@
-import React from 'react'
+import { Sidebar } from "@/components/Sidebar";
+import React from "react";
 
 export default function page() {
-    return (
-        <div>page</div>
-    )
+  return (
+    <div>
+      <Sidebar />
+    </div>
+  );
 }

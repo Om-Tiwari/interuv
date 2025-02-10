@@ -13,14 +13,20 @@ interface LanguageSelectorProps {
   setLanguage: (value: string) => void;
 }
 
-export default function LanguageSelector({ language, setLanguage }: LanguageSelectorProps) {
+export default function LanguageSelector({
+  language,
+  setLanguage,
+}: LanguageSelectorProps) {
   const languageList = Object.entries(LANGUAGE_VERSIONS);
   const handleChange = (value: string) => {
     setLanguage(value);
-  }
+  };
   return (
     <div>
-      <Select onValueChange={(value) => handleChange(value)} defaultValue={language}>
+      <Select
+        onValueChange={(value) => handleChange(value)}
+        defaultValue={language}
+      >
         <SelectTrigger className="w-[180px]">
           <SelectValue placeholder="Select Language" />
         </SelectTrigger>

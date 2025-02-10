@@ -2,7 +2,7 @@
 import { useEffect } from "react";
 import StackBlitzSDK from "@stackblitz/sdk"; // Default import
 
-export default function Home() {
+export default function ReactEditor() {
   useEffect(() => {
     // Use StackBlitzSDK.embedProject
     StackBlitzSDK.embedProject(
@@ -135,8 +135,8 @@ export default defineConfig({
 
   return (
     <div>
-      <h1>React + Tailwind CSS with Vite (TypeScript) Sandbox</h1>
       <div id="my-div" className="h-svh"></div>
+      <h1 className="text-4xl">React + Tailwind CSS with Vite (TypeScript)</h1>
     </div>
   );
 }
