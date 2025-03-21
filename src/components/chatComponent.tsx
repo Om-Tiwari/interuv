@@ -97,23 +97,13 @@ export function Chat() {
             sender: "Interviewer" as const,
             timestamp: formatTime(new Date()),
           });
-        }
+        } 
 
-        // Sample Input
-        if (questionData.sampleInput) {
+        // Sample Input Output
+        if (questionData.sampleInputOutput) {
           messages.push({
             id: generateUniqueId(),
-            text: `Input:\n${questionData.sampleInput}`,
-            sender: "Interviewer" as const,
-            timestamp: formatTime(new Date()),
-          });
-        }
-
-        // Sample Output
-        if (questionData.sampleOutput) {
-          messages.push({
-            id: generateUniqueId(),
-            text: `Output:\n${questionData.sampleOutput}`,
+            text: `\n${questionData.sampleInputOutput}`,
             sender: "Interviewer" as const,
             timestamp: formatTime(new Date()),
           });

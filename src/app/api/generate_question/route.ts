@@ -5,7 +5,7 @@ export async function POST(request: Request) {
     const body = await request.json();
 
     // Forward the request directly to the local server
-    const response = await fetch('http://localhost:8000/generate_question', {
+    const response = await fetch('http://localhost:8000/Codequestion', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

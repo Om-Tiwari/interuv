@@ -7,7 +7,6 @@ import { python } from '@codemirror/lang-python';
 import dynamic from 'next/dynamic';
 import axios from "axios";
 import { CODE_SNIPPETS, LANGUAGE_VERSIONS } from './data';
-import CodeEditor from "./CodeEditor";
 
 const CodeMirror = dynamic(
   () => import('@uiw/react-codemirror'),
@@ -35,11 +34,12 @@ function Output({ output, loading, error }: OutputProps) {
 }
 
 export default function Editor() {
-  const { questions, addAnswer } = useQuestions();
+  const { questions, addAnswer, setCurrentQuestion } = useQuestions();
   const { editorContent, setEditorContent, editorLanguage, setEditorLanguage, currentQuestion } = useQuestions();
   const [output, setOutput] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isError, setIsError] = useState<boolean>(false);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   const languages = [
     { value: 'javascript', label: 'JavaScript' },
@@ -53,23 +53,33 @@ export default function Editor() {
   useEffect(() => {
     try {
       if (currentQuestion?.question) {
-        // Since question is stored as a JSON string, we need to parse it
+        // Parse the question data
         const questionData = JSON.parse(currentQuestion.question);
 
-        // Check if programmingLang exists in the parsed data
+        // Set the programming language if it exists
         if (questionData.programmingLang) {
           setEditorLanguage(questionData.programmingLang.toLowerCase());
         }
 
-        // Check if templateCode exists in the parsed data
         if (questionData.templateCode) {
           setEditorContent(questionData.templateCode);
+        } else {
+          // Fallback to default template if no template code is provided
+          const defaultTemplate = CODE_SNIPPETS[editorLanguage as keyof typeof CODE_SNIPPETS];
+          if (defaultTemplate) {
+            setEditorContent(defaultTemplate);
+          }
         }
       }
     } catch (error) {
       console.error('Error parsing question data:', error);
+      // Set default template code if parsing fails
+      const defaultTemplate = CODE_SNIPPETS[editorLanguage as keyof typeof CODE_SNIPPETS];
+      if (defaultTemplate) {
+        setEditorContent(defaultTemplate);
+      }
     }
-  }, [currentQuestion, setEditorLanguage, setEditorContent]);
+  }, [currentQuestion, setEditorLanguage, setEditorContent, editorLanguage]);
 
   // Force update editor content when language changes
   useEffect(() => {
@@ -102,22 +112,108 @@ export default function Editor() {
     try {
       setIsLoading(true);
       setIsError(false);
+
+      if (!editorContent) {
+        throw new Error('No code to execute');
+      }
+
+      // Combine user code with testing code if available
+      let fullCode = editorContent;
+      if (currentQuestion?.question) {
+        try {
+          console.log('Current question data:', currentQuestion.question);
+          const questionData = JSON.parse(currentQuestion.question);
+          if (questionData) {
+            fullCode = editorContent + "\n\n" + questionData.evaluationFunction + "\n\n" + "evaluate(solution)";
+            console.log('Full code to execute:', fullCode);
+          }
+        } catch (error) {
+          console.error('Error parsing question data:', error);
+        }
+      }
+
+      console.log('Sending code to API:', {
+        language: editorLanguage.toLowerCase(),
+        version: LANGUAGE_VERSIONS[editorLanguage as keyof typeof LANGUAGE_VERSIONS],
+        code: fullCode
+      });
+
       const response = await axios.post("https://emkc.org/api/v2/piston/execute", {
         language: editorLanguage.toLowerCase(),
-        version: LANGUAGE_VERSIONS[editorLanguage.toLowerCase() as keyof typeof LANGUAGE_VERSIONS],
+        version: LANGUAGE_VERSIONS[editorLanguage as keyof typeof LANGUAGE_VERSIONS],
         files: [
           {
-            content: editorContent,
-          },
+            name: "main",
+            content: fullCode
+          }
         ],
+        stdin: ""
       });
-      setOutput(response.data.run.output);
-      setIsError(response.data.run.stderr.length > 0);
+
+      console.log('API Response:', response.data);
+
+      if (response.data.run) {
+        const { stdout, stderr } = response.data.run;
+        if (stdout) {
+          setOutput(stdout);
+          setIsError(false);
+        } else if (stderr) {
+          setOutput(stderr);
+          setIsError(true);
+        } else {
+          setOutput('No output from execution');
+          setIsError(true);
+        }
+      } else {
+        setOutput('Invalid response from execution server');
+        setIsError(true);
+      }
     } catch (error: any) {
+      console.error('Execution error:', error);
       setIsError(true);
-      setOutput(error.response?.data?.message || error.message || "An error occurred");
+      setOutput(error.response?.data?.message || error.message || 'Error executing code');
     } finally {
       setIsLoading(false);
+    }
+  };
+  // todo: add a submit button to submit the code to the backend
+  const handleSubmitCode = async () => {
+    try {
+      setIsSubmitting(true);
+      setIsError(false);
+
+      if (!editorContent) {
+        throw new Error('No code to submit');
+      }
+
+      const response = await axios.post("http://localhost:8000/evaluateCode", {
+        code: editorContent,
+        output: output,
+        language: editorLanguage.toLowerCase(),
+        questionId: currentQuestion?.id
+      });
+
+      console.log('Submission response:', response.data);
+
+      // Add user message to chat UI
+      if (currentQuestion?.id) {
+        addAnswer(currentQuestion.id, 'Code Submitted');
+      }
+
+      // Get next question using the route implementation
+      const nextQuestionResponse = await axios.get(`http://localhost:8000/questions/${currentQuestion?.id}/next`);
+      if (nextQuestionResponse.data) {
+        setCurrentQuestion(nextQuestionResponse.data);
+      }
+
+      setOutput('Code submitted successfully!');
+      setIsError(false);
+    } catch (error: any) {
+      console.error('Submission error:', error);
+      setIsError(true);
+      setOutput(error.response?.data?.message || error.message || 'Error submitting code');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -138,13 +234,22 @@ export default function Editor() {
             ))}
           </select>
         </div>
-        <button
-          onClick={executeCode}
-          className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-md transition-colors"
-          disabled={isLoading}
-        >
-          {isLoading ? 'Running...' : 'Run Code'}
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={executeCode}
+            className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-md transition-colors"
+            disabled={isLoading || isSubmitting}
+          >
+            {isLoading ? 'Running...' : 'Run Code'}
+          </button>
+          <button
+            onClick={handleSubmitCode}
+            className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-md transition-colors"
+            disabled={isLoading || isSubmitting}
+          >
+            {isSubmitting ? 'Submitting...' : 'Submit Code'}
+          </button>
+        </div>
       </div>
       <div className="border border-gray-700 rounded-md flex-grow mb-4 overflow-hidden">
         <CodeMirror
@@ -169,7 +274,6 @@ export default function Editor() {
             rectangularSelection: true,
             crosshairCursor: true,
             highlightSelectionMatches: true,
-            scrollPastEnd: false,
           }}
           style={{ height: '100%', minHeight: '200px', overflow: 'auto' }}
         />
