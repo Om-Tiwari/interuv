@@ -5,12 +5,28 @@ import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { useQuestions } from "@/context/QuestionsContext";
 import { Textarea } from "@/components/ui/textarea";
+import ReactDOMServer from "react-dom/server";
 
 interface Message {
   id: string;
   text: string;
   sender: "Candidate" | "Interviewer";
   timestamp?: string;
+  isHtml?: boolean;
+}
+
+interface QuestionData {
+  difficulty?: 'Easy' | 'Medium' | 'Hard';
+  questionText?: string;
+  inputDescription?: string;
+  outputDescription?: string;
+  constraints?: string[];
+  sampleInputOutput?: string[] | string;
+  explanation?: string;
+  programmingLang?: string;
+  templateCode?: string;
+  testCases?: string;
+  evaluationFunction?: string;
 }
 
 // Helper function to format time consistently
@@ -22,13 +38,139 @@ const formatTime = (date: Date) => {
   });
 };
 
+// Message Components
+const DifficultyBadge = ({ difficulty }: { difficulty: string }) => {
+  const difficultyColors = {
+    'Easy': 'bg-green-500/20 text-green-400 border-green-500/50',
+    'Medium': 'bg-yellow-500/20 text-yellow-400 border-yellow-500/50',
+    'Hard': 'bg-red-500/20 text-red-400 border-red-500/50'
+  } as const;
+  const colorClasses = difficultyColors[difficulty as keyof typeof difficultyColors] || 'bg-blue-500/20 text-blue-400 border-blue-500/50';
+  return (
+    <div className={`px-3 py-1 rounded-full border ${colorClasses} text-sm font-medium`}>
+      {difficulty}
+    </div>
+  );
+};
+
+const LanguageBadge = ({ language }: { language: string }) => (
+  <div className="px-3 py-1 rounded-full bg-purple-500/20 text-purple-400 border border-purple-500/50 text-sm font-medium">
+    {language}
+  </div>
+);
+
+const MessageSection = ({ title, children, className = '' }: { title: string; children: React.ReactNode; className?: string }) => (
+  <div className={`bg-gray-800/50 rounded-lg p-4 ${className}`}>
+    <div className="text-blue-400 font-medium mb-2">{title}</div>
+    {children}
+  </div>
+);
+
+const CodeBlock = ({ code }: { code: string }) => (
+  <div className="font-mono bg-black/30 p-3 rounded text-sm text-gray-300 whitespace-pre overflow-x-auto">
+    {code}
+  </div>
+);
+
+const QuestionMessage = ({ questionData, questionId }: { questionData: QuestionData; questionId: string }) => {
+  return (
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between border-b border-gray-700 pb-2">
+        <div className="flex items-center gap-3">
+          {questionData.difficulty && <DifficultyBadge difficulty={questionData.difficulty} />}
+          {questionData.programmingLang && <LanguageBadge language={questionData.programmingLang} />}
+        </div>
+        <div className="text-sm text-gray-400">Question ID: {questionId}</div>
+      </div>
+
+      {/* Question Content */}
+      <div className="space-y-4">
+        <div className="text-lg font-semibold text-white">{questionData.questionText}</div>
+
+        {/* Input/Output Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {questionData.inputDescription && (
+            <MessageSection title="Input Description">
+              <div className="text-gray-300">{questionData.inputDescription}</div>
+            </MessageSection>
+          )}
+          {questionData.outputDescription && (
+            <MessageSection title="Output Description">
+              <div className="text-gray-300">{questionData.outputDescription}</div>
+            </MessageSection>
+          )}
+        </div>
+
+        {/* Constraints */}
+        {questionData.constraints && (
+          <MessageSection title="Constraints">
+            <ul className="list-disc list-inside space-y-1 text-gray-300">
+              {Array.isArray(questionData.constraints)
+                ? questionData.constraints.map((constraint: string, index: number) => (
+                  <li key={`constraint-${index.toString()}`}>{constraint}</li>
+                ))
+                : <li>{questionData.constraints}</li>
+              }
+            </ul>
+          </MessageSection>
+        )}
+
+        {/* Sample Input/Output */}
+        {questionData.sampleInputOutput && (
+          <MessageSection title="Sample Input/Output">
+            <CodeBlock code={Array.isArray(questionData.sampleInputOutput)
+              ? questionData.sampleInputOutput.join('\n')
+              : questionData.sampleInputOutput
+            } />
+          </MessageSection>
+        )}
+
+        {/* Explanation */}
+        {questionData.explanation && (
+          <MessageSection title="Explanation">
+            <div className="text-gray-300">{questionData.explanation}</div>
+          </MessageSection>
+        )}
+
+        {/* Template Code */}
+        {questionData.templateCode && (
+          <MessageSection title="Template Code">
+            <CodeBlock code={questionData.templateCode} />
+          </MessageSection>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const ChatMessage = ({ message }: { message: Message }) => (
+  <div
+    className={`mb-6 ${message.sender === "Interviewer"
+      ? "bg-gray-800/30 border border-gray-700"
+      : "bg-blue-900/20 border border-blue-800/30"
+      } rounded-lg overflow-hidden`}
+  >
+    <div className="px-4 py-2 bg-black/20">
+      <div className="text-sm text-gray-400">{message.timestamp}</div>
+    </div>
+    <div className="p-4">
+      {message.isHtml ? (
+        <div
+          className="message-content prose prose-invert max-w-none"
+          dangerouslySetInnerHTML={{ __html: message.text }}
+        />
+      ) : (
+        <div className="whitespace-pre-wrap text-gray-300">{message.text}</div>
+      )}
+    </div>
+  </div>
+);
+
 export function Chat() {
   const { questions, addAnswer, setCurrentQuestion } = useQuestions();
   const messageIdCounter = useRef(0);
-  const generateUniqueId = () => {
-    messageIdCounter.current += 1;
-    return `msg-${Date.now()}-${messageIdCounter.current}`;
-  };
+  const generateUniqueId = () => `msg-${Date.now()}-${++messageIdCounter.current}`;
 
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -44,91 +186,47 @@ export function Chat() {
 
   // Update messages when questions change
   useEffect(() => {
-    const questionMessages = questions.flatMap(q => {
+    const updateMessages = () => {
+      if (!questions || questions.length === 0) return;
+
       try {
-        const questionData = JSON.parse(q.question);
-        const messages = [];
+        const currentQuestion = questions[questions.length - 1];
+        const parsedQuestion = JSON.parse(currentQuestion.question);
+        const questionsArray = parsedQuestion.questions || [parsedQuestion];
 
-        // Question text message
-        messages.push({
+        const questionMessages = questionsArray.map((questionData: QuestionData) => ({
           id: generateUniqueId(),
-          text: questionData.questionText || q.question,
+          text: ReactDOMServer.renderToString(
+            <QuestionMessage
+              questionData={questionData}
+              questionId={currentQuestion.id.toString()}
+            />
+          ),
           sender: "Interviewer" as const,
           timestamp: formatTime(new Date()),
+          isHtml: true
+        }));
+
+        setMessages(prev => {
+          const welcomeMessage = prev.find(m => m.text === "Welcome to the coding round!");
+          return [...(welcomeMessage ? [welcomeMessage] : []), ...questionMessages];
         });
-
-        // Input Description
-        if (questionData.inputDescription) {
-          messages.push({
-            id: generateUniqueId(),
-            text: `Input Description:\n${questionData.inputDescription}`,
-            sender: "Interviewer" as const,
-            timestamp: formatTime(new Date()),
-          });
-        }
-
-        // Output Description
-        if (questionData.outputDescription) {
-          messages.push({
-            id: generateUniqueId(),
-            text: `Output Description:\n${questionData.outputDescription}`,
-            sender: "Interviewer" as const,
-            timestamp: formatTime(new Date()),
-          });
-        }
-
-        // Explanation
-        if (questionData.explanation) {
-          messages.push({
-            id: generateUniqueId(),
-            text: `Explanation:\n${questionData.explanation}`,
-            sender: "Interviewer" as const,
-            timestamp: formatTime(new Date()),
-          });
-        }
-
-        // Constraints
-        if (questionData.constraints) {
-          messages.push({
-            id: generateUniqueId(),
-            text: `Constraints: \n${Array.isArray(questionData.constraints)
-              ? questionData.constraints.join('\n')
-              : questionData.constraints}`,
-            sender: "Interviewer" as const,
-            timestamp: formatTime(new Date()),
-          });
-        } 
-
-        // Sample Input Output
-        if (questionData.sampleInputOutput) {
-          messages.push({
-            id: generateUniqueId(),
-            text: `\n${questionData.sampleInputOutput}`,
-            sender: "Interviewer" as const,
-            timestamp: formatTime(new Date()),
-          });
-        }
-
-
-        return messages;
       } catch (error) {
-        console.error('Error parsing question:', error);
-        return [{
-          id: generateUniqueId(),
-          text: q.question,
-          sender: "Interviewer" as const,
-          timestamp: formatTime(new Date()),
-        }];
+        setMessages(prev => {
+          const welcomeMessage = prev.find(m => m.text === "Welcome to the coding round!");
+          return [...(welcomeMessage ? [welcomeMessage] : []), {
+            id: generateUniqueId(),
+            text: "Error: Could not parse question data. Please try again.",
+            sender: "Interviewer" as const,
+            timestamp: formatTime(new Date()),
+            isHtml: false
+          }];
+        });
       }
-    });
+    };
 
-    setMessages(prev => [...prev, ...questionMessages]);
-
-    // Set the current question to the latest question
-    if (questions.length > 0) {
-      setCurrentQuestion(questions[questions.length - 1]);
-    }
-  }, [questions, setCurrentQuestion]);
+    updateMessages();
+  }, [questions]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -150,42 +248,18 @@ export function Chat() {
   }, [messages]);
 
   return (
-    <div className="flex flex-col h-full bg-gray-900">
-      <div className="p-3 md:p-4 border-b border-gray-800">
-        <h2 className="text-lg font-semibold text-white">Interview Questions</h2>
-      </div>
-
-      {/* Main chat area */}
+    <div className="flex flex-col h-full bg-gray-900 text-white rounded-md overflow-hidden">
       <div className="flex-1 overflow-y-auto p-4">
-        <div className="flex flex-col space-y-4">
-          {messages.map((message) => (
-            <div
-              key={message.id}
-              className={`flex ${message.sender === "Candidate" ? "justify-end" : "justify-start"}`}
-            >
-              <div
-                className={`${message.sender === "Candidate"
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-800/50 text-gray-100"
-                  } rounded-lg px-4 py-3 max-w-[80%] shadow-md`}
-              >
-                <p className="text-sm md:text-base break-words">
-                  {message.text}
-                </p>
-                {message.timestamp && (
-                  <p className="text-xs opacity-70 mt-1">{message.timestamp}</p>
-                )}
-              </div>
-            </div>
-          ))}
-          <div ref={messagesEndRef} />
-        </div>
+        {messages.map((message) => (
+          <ChatMessage key={message.id} message={message} />
+        ))}
+        <div ref={messagesEndRef} />
       </div>
 
       {/* Input area */}
-      <div className="p-3 md:p-4 border-t border-gray-800 bg-gray-900">
-        <form onSubmit={handleSendMessage}>
-          <div className="flex gap-2">
+      <div className="p-4 border-t border-gray-800 bg-gray-900/80 backdrop-blur">
+        <form onSubmit={handleSendMessage} className="max-w-4xl mx-auto">
+          <div className="flex gap-3">
             <Textarea
               value={newMessage}
               onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setNewMessage(e.target.value)}

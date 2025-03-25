@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from "react";
-import { useQuestions } from "@/context/QuestionsContext";
+import { useQuestions, Question } from "@/context/QuestionsContext";
 import { javascript } from '@codemirror/lang-javascript';
 import { python } from '@codemirror/lang-python';
 import dynamic from 'next/dynamic';
@@ -34,8 +34,19 @@ function Output({ output, loading, error }: OutputProps) {
 }
 
 export default function Editor() {
-  const { questions, addAnswer, setCurrentQuestion } = useQuestions();
-  const { editorContent, setEditorContent, editorLanguage, setEditorLanguage, currentQuestion } = useQuestions();
+  const {
+    currentQuestion,
+    setCurrentQuestion,
+    currentJdId,
+    editorContent,
+    setEditorContent,
+    editorLanguage,
+    setEditorLanguage,
+    addAnswer,
+    setQuestions,
+    jsonContent,
+    setJsonContent
+  } = useQuestions();
   const [output, setOutput] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isError, setIsError] = useState<boolean>(false);
@@ -176,7 +187,7 @@ export default function Editor() {
       setIsLoading(false);
     }
   };
-  // todo: add a submit button to submit the code to the backend
+
   const handleSubmitCode = async () => {
     try {
       setIsSubmitting(true);
@@ -186,24 +197,110 @@ export default function Editor() {
         throw new Error('No code to submit');
       }
 
+      if (!currentJdId) {
+        throw new Error('Please upload a job description first to get started.');
+      }
+
+      if (!currentQuestion) {
+        throw new Error('No question is currently selected');
+      }
+
+      // Ensure currentQuestion.id is a valid number
+      const questionId = Number(currentQuestion.id);
+      if (isNaN(questionId)) {
+        console.error('Invalid question ID:', currentQuestion.id);
+        throw new Error('Invalid question data. Please try refreshing the page.');
+      }
+
+      console.log('Submitting code with:', {
+        jd_id: currentJdId,
+        questionId: questionId,
+        language: editorLanguage.toLowerCase(),
+        currentQuestion: currentQuestion,
+        jsonContent: jsonContent
+      });
+
       const response = await axios.post("http://localhost:8000/evaluateCode", {
         code: editorContent,
         output: output,
         language: editorLanguage.toLowerCase(),
-        questionId: currentQuestion?.id
+        questionId: questionId,
+        jd_id: currentJdId
       });
 
       console.log('Submission response:', response.data);
 
-      // Add user message to chat UI
-      if (currentQuestion?.id) {
-        addAnswer(currentQuestion.id, 'Code Submitted');
-      }
+      // Add submission confirmation to chat UI
+      addAnswer(questionId, `✅ Question ${questionId} submitted successfully`);
 
-      // Get next question using the route implementation
-      const nextQuestionResponse = await axios.get(`http://localhost:8000/questions/${currentQuestion?.id}/next`);
-      if (nextQuestionResponse.data) {
-        setCurrentQuestion(nextQuestionResponse.data);
+      // Fetch next question immediately after successful submission
+      try {
+        let contentToUse = jsonContent;
+        if (!contentToUse && currentJdId) {
+          // Try to retrieve jsonContent from localStorage
+          const storedContent = localStorage.getItem(`jd_content_${currentJdId}`);
+          if (storedContent) {
+            const parsedContent = JSON.parse(storedContent);
+            setJsonContent(parsedContent);
+            contentToUse = parsedContent;
+          } else {
+            throw new Error('Job description data is missing. Please upload the job description again.');
+          }
+        } else if (!contentToUse) {
+          throw new Error('Job description data is missing. Please upload the job description again.');
+        }
+
+        const nextQuestionResponse = await axios.post('http://localhost:8000/Codequestion', {
+          jd_data: contentToUse,
+          jd_id: currentJdId
+        });
+
+        console.log('Next question response:', nextQuestionResponse.data);
+
+        if (nextQuestionResponse.data) {
+          const newQuestion: Question = {
+            id: Date.now(),
+            question: JSON.stringify(nextQuestionResponse.data),
+            type: 'coding',
+            jd_id: currentJdId
+          };
+
+          console.log('Setting next question:', newQuestion);
+
+          // First update the questions array to trigger chat update
+          setQuestions(prevQuestions => [...prevQuestions, newQuestion]);
+
+          // Then set the current question
+          setCurrentQuestion(newQuestion);
+
+          // Update editor content with new question's template code
+          try {
+            const questionData = JSON.parse(newQuestion.question);
+            if (questionData.programmingLang) {
+              setEditorLanguage(questionData.programmingLang.toLowerCase());
+            }
+            if (questionData.templateCode) {
+              setEditorContent(questionData.templateCode);
+            } else {
+              // Fallback to default template if no template code is provided
+              const defaultTemplate = CODE_SNIPPETS[editorLanguage as keyof typeof CODE_SNIPPETS];
+              if (defaultTemplate) {
+                setEditorContent(defaultTemplate);
+              } else {
+                setEditorContent('');
+              }
+            }
+          } catch (error) {
+            console.error('Error parsing new question data:', error);
+            setEditorContent('');
+          }
+
+          // No need to add answer here as the chat component will handle displaying the question
+        }
+      } catch (error) {
+        console.error('Error fetching next question:', error);
+        setIsError(true);
+        setOutput('Failed to fetch next question');
       }
 
       setOutput('Code submitted successfully!');
@@ -233,52 +330,71 @@ export default function Editor() {
               </option>
             ))}
           </select>
+          {currentJdId && (
+            <div className="text-sm text-gray-400">
+              JD ID: <span className="text-blue-400">{currentJdId}</span>
+            </div>
+          )}
+          {currentQuestion && (
+            <div className="text-sm text-gray-400">
+              Question ID: <span className="text-blue-400">{String(currentQuestion.id)}</span>
+            </div>
+          )}
         </div>
         <div className="flex gap-2">
           <button
             onClick={executeCode}
             className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-md transition-colors"
-            disabled={isLoading || isSubmitting}
+            disabled={isLoading || isSubmitting || !currentQuestion}
           >
             {isLoading ? 'Running...' : 'Run Code'}
           </button>
           <button
             onClick={handleSubmitCode}
             className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-md transition-colors"
-            disabled={isLoading || isSubmitting}
+            disabled={isLoading || isSubmitting || !currentQuestion}
           >
             {isSubmitting ? 'Submitting...' : 'Submit Code'}
           </button>
         </div>
       </div>
-      <div className="border border-gray-700 rounded-md flex-grow mb-4 overflow-hidden">
-        <CodeMirror
-          key={editorLanguage}
-          value={editorContent}
-          height="100%"
-          width="100%"
-          theme="dark"
-          onChange={(value) => setEditorContent(value)}
-          extensions={[getLanguageExtension()]}
-          basicSetup={{
-            lineNumbers: true,
-            highlightActiveLineGutter: true,
-            highlightActiveLine: true,
-            foldGutter: true,
-            dropCursor: true,
-            allowMultipleSelections: true,
-            indentOnInput: true,
-            bracketMatching: true,
-            closeBrackets: true,
-            autocompletion: true,
-            rectangularSelection: true,
-            crosshairCursor: true,
-            highlightSelectionMatches: true,
-          }}
-          style={{ height: '100%', minHeight: '200px', overflow: 'auto' }}
-        />
-      </div>
-      <Output output={output} loading={isLoading} error={isError} />
+      {!currentQuestion && (
+        <div className="text-center text-gray-400 py-4">
+          Please wait for a question to be loaded...
+        </div>
+      )}
+      {currentQuestion && (
+        <>
+          <div className="border border-gray-700 rounded-md flex-grow mb-4 overflow-hidden">
+            <CodeMirror
+              key={editorLanguage}
+              value={editorContent}
+              height="100%"
+              width="100%"
+              theme="dark"
+              onChange={(value) => setEditorContent(value)}
+              extensions={[getLanguageExtension()]}
+              basicSetup={{
+                lineNumbers: true,
+                highlightActiveLineGutter: true,
+                highlightActiveLine: true,
+                foldGutter: true,
+                dropCursor: true,
+                allowMultipleSelections: true,
+                indentOnInput: true,
+                bracketMatching: true,
+                closeBrackets: true,
+                autocompletion: true,
+                rectangularSelection: true,
+                crosshairCursor: true,
+                highlightSelectionMatches: true,
+              }}
+              style={{ height: '100%', minHeight: '200px', overflow: 'auto' }}
+            />
+          </div>
+          <Output output={output} loading={isLoading} error={isError} />
+        </>
+      )}
     </div>
   );
 }

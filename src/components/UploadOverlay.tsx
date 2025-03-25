@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useQuestions, Question } from '@/context/QuestionsContext';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2 } from 'lucide-react';
+import { v4 as uuidv4 } from 'uuid';
 
 interface UploadOverlayProps {
     isOpen: boolean;
@@ -11,7 +12,7 @@ interface UploadOverlayProps {
 }
 
 export function UploadOverlay({ isOpen, onClose }: UploadOverlayProps) {
-    const { setQuestions } = useQuestions();
+    const { setQuestions, setCurrentJdId, setCurrentQuestion, setJsonContent } = useQuestions();
     const [error, setError] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
 
@@ -25,52 +26,72 @@ export function UploadOverlay({ isOpen, onClose }: UploadOverlayProps) {
                 try {
                     const fileContent = e.target?.result as string;
                     const jsonContent = JSON.parse(fileContent);
+                    console.log('Setting jsonContent in UploadOverlay:', jsonContent);
 
-                    // Format the request body according to the API's expected structure
-                    const requestBody = {
-                        title: jsonContent.parsedJDData?.jobTitle || "Software Engineer",
-                        company: jsonContent.parsedJDData?.aboutCompany?.companyName || "Company",
-                        description: jsonContent.parsedJDData?.aboutCompany?.overview || "",
-                        responsibilities: jsonContent.parsedJDData?.workDetails?.duties || [],
-                        requirements: [
-                            ...(jsonContent.parsedJDData?.desiredSkills?.technicalSkills?.mustHave || []),
-                            ...(jsonContent.parsedJDData?.desiredSkills?.technicalSkills?.experience || []),
-                            ...(jsonContent.parsedJDData?.desiredSkills?.technicalSkills?.knowledge || [])
-                        ],
-                        skills: {
-                            required: jsonContent.parsedJDData?.desiredSkills?.techStack || [],
-                            preferred: []
-                        }
-                    };
+                    // Set JSON content in context
+                    setJsonContent(jsonContent);
 
-                    const response = await fetch('/api/generate_question', {
+                    // Generate UUID for jd_id first
+                    const jd_id = uuidv4();
+                    console.log('Generated JD ID:', jd_id);
+
+                    // Store the association between jd_id and jsonContent
+                    localStorage.setItem(`jd_content_${jd_id}`, JSON.stringify(jsonContent));
+
+                    // Set the current JD ID
+                    setCurrentJdId(jd_id);
+
+                    // Send the request with proper structure for FastAPI
+                    const response = await fetch('http://localhost:8000/Codequestion', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
                             'accept': 'application/json'
                         },
-                        body: JSON.stringify(requestBody),
+                        body: JSON.stringify({
+                            jd_data: jsonContent,
+                            jd_id: jd_id
+                        }),
                     });
 
                     if (!response.ok) {
-                        const errorText = await response.text();
-                        throw new Error(`Failed to generate question: ${errorText}`);
+                        const errorData = await response.json().catch(() => null);
+                        console.error('Server error response:', errorData);
+                        throw new Error(errorData?.detail || `Failed to generate question: ${response.statusText}`);
                     }
 
                     const data = await response.json();
-                    if (!data.questionText) {
-                        throw new Error('Invalid response format from server');
+                    console.log('Server response:', data);
+
+                    // Check if data is empty or missing required fields
+                    if (!data || Object.keys(data).length === 0) {
+                        console.error('Empty response from server');
+                        throw new Error('Server returned empty response');
                     }
 
-                    // Add the question to the context
+                    // Generate question ID
+                    const questionId = Date.now();
+                    console.log('Generated Question ID:', questionId);
+
+
+                    // Add the question to the context with jd_id
                     const newQuestion: Question = {
-                        id: parseInt(data.id),
+                        id: questionId,
                         question: JSON.stringify(data),
-                        type: data.type
+                        type: 'coding', // Default type since we're not getting it from server
+                        jd_id: jd_id
                     };
+
+                    console.log('Adding new question:', newQuestion);
+                    // Set as current question
+                    setCurrentQuestion(newQuestion);
+                    // Add to questions array
                     setQuestions(prevQuestions => [...prevQuestions, newQuestion]);
+                    // Close the overlay after successful processing
                     onClose();
+
                 } catch (err) {
+                    console.error('Error processing file:', err);
                     setError(err instanceof Error ? err.message : 'An unexpected error occurred');
                 }
             };
@@ -81,6 +102,7 @@ export function UploadOverlay({ isOpen, onClose }: UploadOverlayProps) {
 
             reader.readAsText(file);
         } catch (err) {
+            console.error('Error reading file:', err);
             setError(err instanceof Error ? err.message : 'An unexpected error occurred');
         } finally {
             setIsLoading(false);

@@ -7,6 +7,7 @@ export interface Question {
     question: string;
     type: string;
     answer?: string;
+    jd_id: string;  // UUID string type
 }
 
 interface QuestionsContextType {
@@ -19,6 +20,10 @@ interface QuestionsContextType {
     setEditorLanguage: (lang: string) => void;
     currentQuestion: Question | null;
     setCurrentQuestion: (question: Question | null) => void;
+    currentJdId: string | null;  // UUID string type
+    setCurrentJdId: (id: string | null) => void;
+    jsonContent: any;
+    setJsonContent: (content: any) => void;
 }
 
 const QuestionsContext = createContext<QuestionsContextType | undefined>(undefined);
@@ -28,6 +33,8 @@ export function QuestionsProvider({ children }: { children: ReactNode }) {
     const [editorContent, setEditorContent] = useState("");
     const [editorLanguage, setEditorLanguage] = useState("java");
     const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
+    const [currentJdId, setCurrentJdId] = useState<string | null>(null);
+    const [jsonContent, setJsonContent] = useState<any>(null);
 
     const addAnswer = (questionId: number, answer: string) => {
         setQuestions(questions.map(q =>
@@ -45,7 +52,11 @@ export function QuestionsProvider({ children }: { children: ReactNode }) {
             editorLanguage,
             setEditorLanguage,
             currentQuestion,
-            setCurrentQuestion
+            setCurrentQuestion,
+            currentJdId,
+            setCurrentJdId,
+            jsonContent,
+            setJsonContent
         }}>
             {children}
         </QuestionsContext.Provider>
