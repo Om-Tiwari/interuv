@@ -7,6 +7,7 @@ import ReactDOMServer from "react-dom/server";
 import { Message, QuestionData } from "./types";
 import { ChatMessage } from "./ChatMessage";
 import { QuestionMessage } from "./QuestionMessage";
+import { v4 as uuidv4 } from 'uuid';
 
 // Helper function to format time consistently
 const formatTime = (date: Date) => {
@@ -19,9 +20,8 @@ const formatTime = (date: Date) => {
 
 export function Chat() {
     const { questions, addAnswer, setCurrentQuestion } = useQuestions();
-    const messageIdCounter = useRef(0);
-    const generateUniqueId = () => `msg-${Date.now()}-${++messageIdCounter.current}`;
-
+    const generateUniqueId = () => uuidv4();
+    const processedQuestionIds = useRef(new Set<number>());
     const [messages, setMessages] = useState<Message[]>([
         {
             id: generateUniqueId(),
@@ -40,43 +40,40 @@ export function Chat() {
             if (!questions || questions.length === 0) return;
 
             try {
-                const currentQuestion = questions[questions.length - 1];
-                const parsedQuestion = JSON.parse(currentQuestion.question);
-                const questionsArray = parsedQuestion.questions || [parsedQuestion];
+                // Sort questions by ID and filter unprocessed ones
+                const sortedQuestions = [...questions]
+                    .sort((a, b) => a.id - b.id)
+                    .filter(q => !processedQuestionIds.current.has(q.id));
 
-                const questionMessages = questionsArray.map((questionData: QuestionData) => ({
-                    id: generateUniqueId(),
-                    text: ReactDOMServer.renderToString(
-                        <QuestionMessage
-                            questionData={questionData}
-                            questionId={currentQuestion.id.toString()}
-                        />
-                    ),
-                    sender: "Interviewer" as const,
-                    timestamp: formatTime(new Date()),
-                    isHtml: true
-                }));
+                if (sortedQuestions.length > 0) {
+                    const questionMessages = sortedQuestions.map(currentQuestion => {
+                        // Mark question as processed
+                        processedQuestionIds.current.add(currentQuestion.id);
 
-                setMessages(prev => {
-                    const welcomeMessage = prev.find(m => m.text === "Welcome to the coding round!");
-                    return [...(welcomeMessage ? [welcomeMessage] : []), ...questionMessages];
-                });
+                        const parsedQuestion = JSON.parse(currentQuestion.question);
+                        return {
+                            id: generateUniqueId(),
+                            text: ReactDOMServer.renderToString(
+                                <QuestionMessage
+                                    questionData={parsedQuestion}
+                                    questionId={currentQuestion.id.toString()}
+                                />
+                            ),
+                            sender: "Interviewer" as const,
+                            timestamp: formatTime(new Date()),
+                            isHtml: true
+                        };
+                    });
+
+                    setMessages(prev => [...prev, ...questionMessages]);
+                }
             } catch (error) {
-                setMessages(prev => {
-                    const welcomeMessage = prev.find(m => m.text === "Welcome to the coding round!");
-                    return [...(welcomeMessage ? [welcomeMessage] : []), {
-                        id: generateUniqueId(),
-                        text: "Error: Could not parse question data. Please try again.",
-                        sender: "Interviewer" as const,
-                        timestamp: formatTime(new Date()),
-                        isHtml: false
-                    }];
-                });
+                console.error('Error updating messages:', error);
             }
         };
 
         updateMessages();
-    }, [questions]);
+    }, [questions]); // Remove messages from dependencies
 
     const handleSendMessage = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -127,4 +124,4 @@ export function Chat() {
             </div>
         </div>
     );
-} 
+}

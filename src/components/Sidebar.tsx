@@ -4,7 +4,7 @@ import * as React from "react";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import Editor from "./Editor";
-import { Chat } from "./chatComponent";
+import { Chat } from "./chat/Chat";
 
 interface SidebarProps {
   onUploadClick: () => void;

@@ -7,6 +7,7 @@ import { python } from '@codemirror/lang-python';
 import dynamic from 'next/dynamic';
 import axios from "axios";
 import { CODE_SNIPPETS, LANGUAGE_VERSIONS } from './data';
+import { Judson } from "next/font/google";
 
 const CodeMirror = dynamic(
   () => import('@uiw/react-codemirror'),
@@ -35,6 +36,9 @@ function Output({ output, loading, error }: OutputProps) {
 
 export default function Editor() {
   const {
+    questions,
+    currentQuestionIndex,
+    setCurrentQuestionIndex,
     currentQuestion,
     setCurrentQuestion,
     currentJdId,
@@ -47,6 +51,7 @@ export default function Editor() {
     jsonContent,
     setJsonContent
   } = useQuestions();
+
   const [output, setOutput] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isError, setIsError] = useState<boolean>(false);
@@ -66,7 +71,7 @@ export default function Editor() {
       if (currentQuestion?.question) {
         // Parse the question data
         const questionData = JSON.parse(currentQuestion.question);
-
+        console.log('Parsed question data:', questionData);
         // Set the programming language if it exists
         if (questionData.programmingLang) {
           setEditorLanguage(questionData.programmingLang.toLowerCase());
@@ -135,14 +140,14 @@ export default function Editor() {
           console.log('Current question data:', currentQuestion.question);
           const questionData = JSON.parse(currentQuestion.question);
           if (questionData) {
-            fullCode = editorContent + "\n\n" + questionData.evaluationFunction + "\n\n" + "evaluate(solution)";
+            fullCode = editorContent + "\n"+ questionData.testCases + "\n" + questionData.evaluationFunction;
             console.log('Full code to execute:', fullCode);
           }
         } catch (error) {
           console.error('Error parsing question data:', error);
         }
       }
-
+      
       console.log('Sending code to API:', {
         language: editorLanguage.toLowerCase(),
         version: LANGUAGE_VERSIONS[editorLanguage as keyof typeof LANGUAGE_VERSIONS],
@@ -212,20 +217,15 @@ export default function Editor() {
         throw new Error('Invalid question data. Please try refreshing the page.');
       }
 
-      console.log('Submitting code with:', {
-        jd_id: currentJdId,
-        questionId: questionId,
-        language: editorLanguage.toLowerCase(),
-        currentQuestion: currentQuestion,
-        jsonContent: jsonContent
-      });
-
       const response = await axios.post("http://localhost:8000/evaluateCode", {
-        code: editorContent,
-        output: output,
-        language: editorLanguage.toLowerCase(),
-        questionId: questionId,
-        jd_id: currentJdId
+        responses: {
+          code: editorContent,
+          output: output,
+          language: editorLanguage.toLowerCase(),
+          questionId: questionId,
+        },
+        jd_id: currentJdId,
+
       });
 
       console.log('Submission response:', response.data);
@@ -233,77 +233,25 @@ export default function Editor() {
       // Add submission confirmation to chat UI
       addAnswer(questionId, `✅ Question ${questionId} submitted successfully`);
 
-      // Fetch next question immediately after successful submission
-      try {
-        let contentToUse = jsonContent;
-        if (!contentToUse && currentJdId) {
-          // Try to retrieve jsonContent from localStorage
-          const storedContent = localStorage.getItem(`jd_content_${currentJdId}`);
-          if (storedContent) {
-            const parsedContent = JSON.parse(storedContent);
-            setJsonContent(parsedContent);
-            contentToUse = parsedContent;
-          } else {
-            throw new Error('Job description data is missing. Please upload the job description again.');
-          }
-        } else if (!contentToUse) {
-          throw new Error('Job description data is missing. Please upload the job description again.');
+      // After successful submission, move to next question
+      if (currentQuestionIndex < questions.length - 1) {
+        const nextIndex = currentQuestionIndex + 1;
+        setCurrentQuestionIndex(nextIndex);
+        setCurrentQuestion(questions[nextIndex]);
+
+        // Reset editor content for next question
+        const nextQuestionData = JSON.parse(questions[nextIndex].question);
+        if (nextQuestionData.templateCode) {
+          setEditorContent(nextQuestionData.templateCode);
+        } else {
+          const defaultTemplate = CODE_SNIPPETS[editorLanguage as keyof typeof CODE_SNIPPETS];
+          setEditorContent(defaultTemplate || '');
         }
-
-        const nextQuestionResponse = await axios.post('http://localhost:8000/Codequestion', {
-          jd_data: contentToUse,
-          jd_id: currentJdId
-        });
-
-        console.log('Next question response:', nextQuestionResponse.data);
-
-        if (nextQuestionResponse.data) {
-          const newQuestion: Question = {
-            id: Date.now(),
-            question: JSON.stringify(nextQuestionResponse.data),
-            type: 'coding',
-            jd_id: currentJdId
-          };
-
-          console.log('Setting next question:', newQuestion);
-
-          // First update the questions array to trigger chat update
-          setQuestions(prevQuestions => [...prevQuestions, newQuestion]);
-
-          // Then set the current question
-          setCurrentQuestion(newQuestion);
-
-          // Update editor content with new question's template code
-          try {
-            const questionData = JSON.parse(newQuestion.question);
-            if (questionData.programmingLang) {
-              setEditorLanguage(questionData.programmingLang.toLowerCase());
-            }
-            if (questionData.templateCode) {
-              setEditorContent(questionData.templateCode);
-            } else {
-              // Fallback to default template if no template code is provided
-              const defaultTemplate = CODE_SNIPPETS[editorLanguage as keyof typeof CODE_SNIPPETS];
-              if (defaultTemplate) {
-                setEditorContent(defaultTemplate);
-              } else {
-                setEditorContent('');
-              }
-            }
-          } catch (error) {
-            console.error('Error parsing new question data:', error);
-            setEditorContent('');
-          }
-
-          // No need to add answer here as the chat component will handle displaying the question
-        }
-      } catch (error) {
-        console.error('Error fetching next question:', error);
-        setIsError(true);
-        setOutput('Failed to fetch next question');
+      } else {
+        // All questions completed
+        setOutput('Congratulations! You have completed all questions.');
       }
 
-      setOutput('Code submitted successfully!');
       setIsError(false);
     } catch (error: any) {
       console.error('Submission error:', error);
@@ -341,21 +289,26 @@ export default function Editor() {
             </div>
           )}
         </div>
-        <div className="flex gap-2">
-          <button
-            onClick={executeCode}
-            className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-md transition-colors"
-            disabled={isLoading || isSubmitting || !currentQuestion}
-          >
-            {isLoading ? 'Running...' : 'Run Code'}
-          </button>
-          <button
-            onClick={handleSubmitCode}
-            className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-md transition-colors"
-            disabled={isLoading || isSubmitting || !currentQuestion}
-          >
-            {isSubmitting ? 'Submitting...' : 'Submit Code'}
-          </button>
+        <div className="flex items-center gap-4">
+          <div className="text-sm text-gray-400">
+            Question {currentQuestionIndex + 1} of {questions.length}
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={executeCode}
+              className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-md transition-colors"
+              disabled={isLoading || isSubmitting || !currentQuestion}
+            >
+              {isLoading ? 'Running...' : 'Run Code'}
+            </button>
+            <button
+              onClick={handleSubmitCode}
+              className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-md transition-colors"
+              disabled={isLoading || isSubmitting || !currentQuestion}
+            >
+              {isSubmitting ? 'Submitting...' : 'Submit Code'}
+            </button>
+          </div>
         </div>
       </div>
       {!currentQuestion && (

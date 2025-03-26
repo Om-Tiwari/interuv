@@ -12,7 +12,7 @@ interface UploadOverlayProps {
 }
 
 export function UploadOverlay({ isOpen, onClose }: UploadOverlayProps) {
-    const { setQuestions, setCurrentJdId, setCurrentQuestion, setJsonContent } = useQuestions();
+    const { setQuestions, setCurrentJdId, setCurrentQuestion, setJsonContent, setCurrentQuestionIndex } = useQuestions();
     const [error, setError] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
 
@@ -63,31 +63,32 @@ export function UploadOverlay({ isOpen, onClose }: UploadOverlayProps) {
                     const data = await response.json();
                     console.log('Server response:', data);
 
-                    // Check if data is empty or missing required fields
                     if (!data || Object.keys(data).length === 0) {
                         console.error('Empty response from server');
                         throw new Error('Server returned empty response');
                     }
 
-                    // Generate question ID
-                    const questionId = Date.now();
-                    console.log('Generated Question ID:', questionId);
-
-
-                    // Add the question to the context with jd_id
-                    const newQuestion: Question = {
-                        id: questionId,
-                        question: JSON.stringify(data),
-                        type: 'coding', // Default type since we're not getting it from server
+                    // Create the first question
+                    const firstQuestion: Question = {
+                        id: 1,
+                        question: JSON.stringify(data.questions[0]),
+                        type: 'coding',
                         jd_id: jd_id
                     };
 
-                    console.log('Adding new question:', newQuestion);
-                    // Set as current question
-                    setCurrentQuestion(newQuestion);
-                    // Add to questions array
-                    setQuestions(prevQuestions => [...prevQuestions, newQuestion]);
-                    // Close the overlay after successful processing
+                    // Set current question
+                    setCurrentQuestion(firstQuestion);
+                    
+                    // Set all questions in context
+                    const allQuestions = data.questions.map((q: any, index: number) => ({
+                        id: index + 1,
+                        question: JSON.stringify(q),
+                        type: 'coding',
+                        jd_id: jd_id
+                    }));
+
+                    setQuestions(allQuestions);
+                    setCurrentQuestionIndex(0);
                     onClose();
 
                 } catch (err) {

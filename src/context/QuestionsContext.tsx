@@ -24,12 +24,15 @@ interface QuestionsContextType {
     setCurrentJdId: (id: string | null) => void;
     jsonContent: any;
     setJsonContent: (content: any) => void;
+    currentQuestionIndex: number;
+    setCurrentQuestionIndex: (index: number) => void;
 }
 
 const QuestionsContext = createContext<QuestionsContextType | undefined>(undefined);
 
 export function QuestionsProvider({ children }: { children: ReactNode }) {
     const [questions, setQuestions] = useState<Question[]>([]);
+    const [currentQuestionIndex, setCurrentQuestionIndex] = useState<number>(0);
     const [editorContent, setEditorContent] = useState("");
     const [editorLanguage, setEditorLanguage] = useState("java");
     const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
@@ -56,7 +59,9 @@ export function QuestionsProvider({ children }: { children: ReactNode }) {
             currentJdId,
             setCurrentJdId,
             jsonContent,
-            setJsonContent
+            setJsonContent,
+            currentQuestionIndex,
+            setCurrentQuestionIndex
         }}>
             {children}
         </QuestionsContext.Provider>

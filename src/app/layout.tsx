@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "PixelMatch",
-  description: "Platform for codings",
+  title: "RecrewCode",
+  description: "Platform for codings tests",
 };
 
 export default function RootLayout({
