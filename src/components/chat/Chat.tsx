@@ -73,7 +73,7 @@ export function Chat() {
         };
 
         updateMessages();
-    }, [questions]); // Remove messages from dependencies
+    }, [questions]); 
 
     const handleSendMessage = async (e: React.FormEvent) => {
         e.preventDefault();

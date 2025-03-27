@@ -7,7 +7,6 @@ import { python } from '@codemirror/lang-python';
 import dynamic from 'next/dynamic';
 import axios from "axios";
 import { CODE_SNIPPETS, LANGUAGE_VERSIONS } from './data';
-import { Judson } from "next/font/google";
 
 const CodeMirror = dynamic(
   () => import('@uiw/react-codemirror'),
@@ -71,20 +70,12 @@ export default function Editor() {
       if (currentQuestion?.question) {
         // Parse the question data
         const questionData = JSON.parse(currentQuestion.question);
-        console.log('Parsed question data:', questionData);
-        // Set the programming language if it exists
         if (questionData.programmingLang) {
           setEditorLanguage(questionData.programmingLang.toLowerCase());
         }
 
         if (questionData.templateCode) {
           setEditorContent(questionData.templateCode);
-        } else {
-          // Fallback to default template if no template code is provided
-          const defaultTemplate = CODE_SNIPPETS[editorLanguage as keyof typeof CODE_SNIPPETS];
-          if (defaultTemplate) {
-            setEditorContent(defaultTemplate);
-          }
         }
       }
     } catch (error) {
@@ -133,11 +124,10 @@ export default function Editor() {
         throw new Error('No code to execute');
       }
 
-      // Combine user code with testing code if available
+      // Combine user code with testing code 
       let fullCode = editorContent;
       if (currentQuestion?.question) {
         try {
-          console.log('Current question data:', currentQuestion.question);
           const questionData = JSON.parse(currentQuestion.question);
           if (questionData) {
             fullCode = editorContent + "\n"+ questionData.testCases + "\n" + questionData.evaluationFunction;
@@ -148,12 +138,6 @@ export default function Editor() {
         }
       }
       
-      console.log('Sending code to API:', {
-        language: editorLanguage.toLowerCase(),
-        version: LANGUAGE_VERSIONS[editorLanguage as keyof typeof LANGUAGE_VERSIONS],
-        code: fullCode
-      });
-
       const response = await axios.post("https://emkc.org/api/v2/piston/execute", {
         language: editorLanguage.toLowerCase(),
         version: LANGUAGE_VERSIONS[editorLanguage as keyof typeof LANGUAGE_VERSIONS],
@@ -165,8 +149,6 @@ export default function Editor() {
         ],
         stdin: ""
       });
-
-      console.log('API Response:', response.data);
 
       if (response.data.run) {
         const { stdout, stderr } = response.data.run;
@@ -213,7 +195,6 @@ export default function Editor() {
       // Ensure currentQuestion.id is a valid number
       const questionId = Number(currentQuestion.id);
       if (isNaN(questionId)) {
-        console.error('Invalid question ID:', currentQuestion.id);
         throw new Error('Invalid question data. Please try refreshing the page.');
       }
 
@@ -228,10 +209,8 @@ export default function Editor() {
 
       });
 
-      console.log('Submission response:', response.data);
-
-      // Add submission confirmation to chat UI
-      addAnswer(questionId, `✅ Question ${questionId} submitted successfully`);
+      // // Add submission confirmation to chat UI
+      // addAnswer(questionId, `✅ Question ${questionId} submitted successfully`);
 
       // After successful submission, move to next question
       if (currentQuestionIndex < questions.length - 1) {
@@ -281,11 +260,6 @@ export default function Editor() {
           {currentJdId && (
             <div className="text-sm text-gray-400">
               JD ID: <span className="text-blue-400">{currentJdId}</span>
-            </div>
-          )}
-          {currentQuestion && (
-            <div className="text-sm text-gray-400">
-              Question ID: <span className="text-blue-400">{String(currentQuestion.id)}</span>
             </div>
           )}
         </div>

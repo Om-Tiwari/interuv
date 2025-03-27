@@ -69,13 +69,6 @@ export const QuestionMessage = ({ questionData, questionId }: QuestionMessagePro
                         <div className="text-gray-300">{questionData.explanation}</div>
                     </MessageSection>
                 )}
-
-                {/* Template Code */}
-                {questionData.templateCode && (
-                    <MessageSection title="Template Code">
-                        <CodeBlock code={questionData.templateCode} />
-                    </MessageSection>
-                )}
             </div>
         </div>
     );

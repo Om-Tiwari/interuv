@@ -7,7 +7,7 @@ export interface Question {
     question: string;
     type: string;
     answer?: string;
-    jd_id: string;  // UUID string type
+    jd_id: string;  
 }
 
 interface QuestionsContextType {
@@ -20,7 +20,7 @@ interface QuestionsContextType {
     setEditorLanguage: (lang: string) => void;
     currentQuestion: Question | null;
     setCurrentQuestion: (question: Question | null) => void;
-    currentJdId: string | null;  // UUID string type
+    currentJdId: string | null;  
     setCurrentJdId: (id: string | null) => void;
     jsonContent: any;
     setJsonContent: (content: any) => void;
