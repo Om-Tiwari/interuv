@@ -8,6 +8,10 @@ import dynamic from 'next/dynamic';
 import axios from "axios";
 import { CODE_SNIPPETS, LANGUAGE_VERSIONS } from './data';
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const PISTON_API_URL = process.env.NEXT_PUBLIC_PISTON_API_URL;
+
+
 const CodeMirror = dynamic(
   () => import('@uiw/react-codemirror'),
   { ssr: false }
@@ -152,7 +156,7 @@ export default function Editor() {
         }
       }
 
-      const response = await axios.post("https://emkc.org/api/v2/piston/execute", {
+      const response = await axios.post(`${PISTON_API_URL}`, {
         language: editorLanguage.toLowerCase(),
         version: LANGUAGE_VERSIONS[editorLanguage as keyof typeof LANGUAGE_VERSIONS],
         files: [
@@ -163,6 +167,7 @@ export default function Editor() {
         ],
         stdin: ""
       });
+      
 
       if (response.data.run) {
         const { stdout, stderr } = response.data.run;
@@ -199,28 +204,6 @@ export default function Editor() {
         throw new Error('Missing required data for submission');
       }
 
-      // First, execute the code to get the evaluation
-      let evaluationResult = '';
-      try {
-        // Combine user code with test cases
-        const questionData = JSON.parse(currentQuestion.question);
-        const fullCode = editorContent + "\n" + questionData.testCases + "\n" + questionData.evaluationFunction;
-
-        const execResponse = await axios.post("https://emkc.org/api/v2/piston/execute", {
-          language: editorLanguage.toLowerCase(),
-          version: LANGUAGE_VERSIONS[editorLanguage as keyof typeof LANGUAGE_VERSIONS],
-          files: [{ name: "main", content: fullCode }],
-          stdin: ""
-        });
-
-        if (execResponse.data.run?.stdout) {
-          evaluationResult = safeStringify(execResponse.data.run.stdout);
-        }
-      } catch (execError: any) {
-        console.error('Code execution error:', execError);
-        evaluationResult = 'Error executing code: ' + (execError.message || 'Unknown error');
-      }
-
       // Prepare the payload for saving
       const payload = {
         jd_id: currentJdId,
@@ -228,14 +211,14 @@ export default function Editor() {
           question_id: currentQuestion.id,
           code: editorContent,
           language: editorLanguage.toLowerCase(),
-          result: evaluationResult,
+          result: output,
           timestamp: new Date().toISOString()
         }
       };
 
       console.log('Submitting payload:', payload);
 
-      const response = await axios.post("http://localhost:8000/saveCode", payload, {
+      const response = await axios.post(`${API_URL}/saveCode`, payload, {
         headers: { 'Content-Type': 'application/json' }
       });
 
@@ -262,7 +245,7 @@ export default function Editor() {
           // All questions completed
           setOutput('All questions completed! Generating final evaluation...');
           try {
-            const evaluationEndpoint = `http://localhost:8000/evaluateCode?jd_id=${currentJdId}`;
+            const evaluationEndpoint = `${API_URL}/evaluateCode?jd_id=${currentJdId}`;
             console.log('Calling evaluation endpoint:', evaluationEndpoint);
 
             const evaluationResponse = await axios.get(

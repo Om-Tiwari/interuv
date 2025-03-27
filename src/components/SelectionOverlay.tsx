@@ -5,6 +5,8 @@ import { useQuestions, Question } from '@/context/QuestionsContext';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2 } from 'lucide-react';
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
+
 interface JDData {
     jobTitle: string;
     id: string;
@@ -31,7 +33,7 @@ export function SelectionOverlay({ isOpen, onClose }: SelectionOverlayProps) {
     const fetchJDs = async () => {
         try {
             setIsLoading(true);
-            const response = await fetch('http://localhost:8000/api/jds');
+            const response = await fetch(`${API_URL}/api/jds`);
             if (!response.ok) throw new Error('Failed to fetch JDs');
             const data = await response.json();
             setJds(data);
@@ -57,7 +59,7 @@ export function SelectionOverlay({ isOpen, onClose }: SelectionOverlayProps) {
             setCurrentJdId(jd.id);
 
             // Fetch questions for the selected JD
-            const response = await fetch('http://localhost:8000/Codequestion', {
+            const response = await fetch(`${API_URL}/Codequestion`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
