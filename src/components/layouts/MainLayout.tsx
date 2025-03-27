@@ -2,9 +2,10 @@
 
 import React, { useState } from "react";
 import { Sidebar } from "@/components/Sidebar";
-import { UploadOverlay } from "@/components/UploadOverlay";
+// import { UploadOverlay } from "@/components/UploadOverlay";
 import { Chat } from "@/components/chat/Chat";
 import Editor from "@/components/Editor";
+import { SelectionOverlay } from "@/components/SelectionOverlay";
 
 export function MainLayout() {
     const [isOverlayOpen, setIsOverlayOpen] = useState(true);
@@ -22,10 +23,10 @@ export function MainLayout() {
                     </div>
                 </div>
             </div>
-            <UploadOverlay
+            <SelectionOverlay
                 isOpen={isOverlayOpen}
                 onClose={() => setIsOverlayOpen(false)}
             />
         </div>
     );
-} 
+}

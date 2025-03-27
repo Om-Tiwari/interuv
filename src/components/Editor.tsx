@@ -13,6 +13,20 @@ const CodeMirror = dynamic(
   { ssr: false }
 );
 
+const safeStringify = (value: any): string => {
+  if (typeof value === 'string') return value;
+  if (value === null) return 'null';
+  if (value === undefined) return 'undefined';
+  if (typeof value === 'object') {
+    try {
+      return JSON.stringify(value, null, 2);
+    } catch (e) {
+      return String(value);
+    }
+  }
+  return String(value);
+};
+
 interface OutputProps {
   output: string;
   loading: boolean;
@@ -22,7 +36,7 @@ interface OutputProps {
 function Output({ output, loading, error }: OutputProps) {
   const containerClasses = `h-[200px] bg-[#1e1e1e] border rounded-md ${error ? 'border-red-500' : 'border-gray-700'}`;
   const textClasses = `p-4 ${error ? 'text-red-500' : 'text-white'}`;
-  const displayText = loading ? 'Running...' : output || 'Click "Run Code" to see the output here';
+  const displayText = loading ? 'Running...' : safeStringify(output) || 'Click "Run Code" to see the output here';
 
   return (
     <div className={containerClasses}>
@@ -130,14 +144,14 @@ export default function Editor() {
         try {
           const questionData = JSON.parse(currentQuestion.question);
           if (questionData) {
-            fullCode = editorContent + "\n"+ questionData.testCases + "\n" + questionData.evaluationFunction;
+            fullCode = editorContent + "\n" + questionData.testCases + "\n" + questionData.evaluationFunction;
             console.log('Full code to execute:', fullCode);
           }
         } catch (error) {
           console.error('Error parsing question data:', error);
         }
       }
-      
+
       const response = await axios.post("https://emkc.org/api/v2/piston/execute", {
         language: editorLanguage.toLowerCase(),
         version: LANGUAGE_VERSIONS[editorLanguage as keyof typeof LANGUAGE_VERSIONS],
@@ -153,10 +167,10 @@ export default function Editor() {
       if (response.data.run) {
         const { stdout, stderr } = response.data.run;
         if (stdout) {
-          setOutput(stdout);
+          setOutput(safeStringify(stdout));
           setIsError(false);
         } else if (stderr) {
-          setOutput(stderr);
+          setOutput(safeStringify(stderr));
           setIsError(true);
         } else {
           setOutput('No output from execution');
@@ -169,7 +183,7 @@ export default function Editor() {
     } catch (error: any) {
       console.error('Execution error:', error);
       setIsError(true);
-      setOutput(error.response?.data?.message || error.message || 'Error executing code');
+      setOutput(safeStringify(error.response?.data || error));
     } finally {
       setIsLoading(false);
     }
@@ -179,63 +193,110 @@ export default function Editor() {
     try {
       setIsSubmitting(true);
       setIsError(false);
+      setOutput('Submitting code...');
 
-      if (!editorContent) {
-        throw new Error('No code to submit');
+      if (!editorContent || !currentJdId || !currentQuestion) {
+        throw new Error('Missing required data for submission');
       }
 
-      if (!currentJdId) {
-        throw new Error('Please upload a job description first to get started.');
-      }
+      // First, execute the code to get the evaluation
+      let evaluationResult = '';
+      try {
+        // Combine user code with test cases
+        const questionData = JSON.parse(currentQuestion.question);
+        const fullCode = editorContent + "\n" + questionData.testCases + "\n" + questionData.evaluationFunction;
 
-      if (!currentQuestion) {
-        throw new Error('No question is currently selected');
-      }
-
-      // Ensure currentQuestion.id is a valid number
-      const questionId = Number(currentQuestion.id);
-      if (isNaN(questionId)) {
-        throw new Error('Invalid question data. Please try refreshing the page.');
-      }
-
-      const response = await axios.post("http://localhost:8000/evaluateCode", {
-        responses: {
-          code: editorContent,
-          output: output,
+        const execResponse = await axios.post("https://emkc.org/api/v2/piston/execute", {
           language: editorLanguage.toLowerCase(),
-          questionId: questionId,
-        },
-        jd_id: currentJdId,
+          version: LANGUAGE_VERSIONS[editorLanguage as keyof typeof LANGUAGE_VERSIONS],
+          files: [{ name: "main", content: fullCode }],
+          stdin: ""
+        });
 
+        if (execResponse.data.run?.stdout) {
+          evaluationResult = safeStringify(execResponse.data.run.stdout);
+        }
+      } catch (execError: any) {
+        console.error('Code execution error:', execError);
+        evaluationResult = 'Error executing code: ' + (execError.message || 'Unknown error');
+      }
+
+      // Prepare the payload for saving
+      const payload = {
+        jd_id: currentJdId,
+        response: {
+          question_id: currentQuestion.id,
+          code: editorContent,
+          language: editorLanguage.toLowerCase(),
+          result: evaluationResult,
+          timestamp: new Date().toISOString()
+        }
+      };
+
+      console.log('Submitting payload:', payload);
+
+      const response = await axios.post("http://localhost:8000/saveCode", payload, {
+        headers: { 'Content-Type': 'application/json' }
       });
 
-      // // Add submission confirmation to chat UI
-      // addAnswer(questionId, `✅ Question ${questionId} submitted successfully`);
+      console.log('Server response:', response.data);
 
-      // After successful submission, move to next question
-      if (currentQuestionIndex < questions.length - 1) {
-        const nextIndex = currentQuestionIndex + 1;
-        setCurrentQuestionIndex(nextIndex);
-        setCurrentQuestion(questions[nextIndex]);
+      if (response.status === 200) {
+        if (currentQuestionIndex < questions.length - 1) {
+          // Move to next question
+          const nextIndex = currentQuestionIndex + 1;
+          setCurrentQuestionIndex(nextIndex);
+          const nextQuestion = questions[nextIndex];
+          setCurrentQuestion(nextQuestion);
 
-        // Reset editor content for next question
-        const nextQuestionData = JSON.parse(questions[nextIndex].question);
-        if (nextQuestionData.templateCode) {
-          setEditorContent(nextQuestionData.templateCode);
+          try {
+            const nextQuestionData = JSON.parse(nextQuestion.question);
+            setEditorContent(nextQuestionData.templateCode || '');
+            setEditorLanguage(nextQuestionData.programmingLang?.toLowerCase() || 'javascript');
+            setOutput('Successfully submitted! Moving to next question...');
+          } catch (parseError) {
+            console.error('Error parsing next question:', parseError);
+            setOutput('Submitted successfully, but error loading next question.');
+          }
         } else {
-          const defaultTemplate = CODE_SNIPPETS[editorLanguage as keyof typeof CODE_SNIPPETS];
-          setEditorContent(defaultTemplate || '');
-        }
-      } else {
-        // All questions completed
-        setOutput('Congratulations! You have completed all questions.');
-      }
+          // All questions completed
+          setOutput('All questions completed! Generating final evaluation...');
+          try {
+            const evaluationEndpoint = `http://localhost:8000/evaluateCode?jd_id=${currentJdId}`;
+            console.log('Calling evaluation endpoint:', evaluationEndpoint);
 
-      setIsError(false);
+            const evaluationResponse = await axios.get(
+              evaluationEndpoint,
+              {
+                headers: {
+                  'Accept': 'application/json'
+                }
+              }
+            );
+
+            console.log('Evaluation response:', evaluationResponse.data);
+
+            if (evaluationResponse.data?.error) {
+              throw new Error(evaluationResponse.data.error);
+            }
+
+            setOutput(`Assessment completed!\n${safeStringify(evaluationResponse.data)}`);
+            setIsError(false);
+          } catch (evalError: any) {
+            console.error('Evaluation error:', evalError);
+            const errorDetail =
+              evalError.response?.data?.error ||
+              evalError.message ||
+              'Failed to evaluate code';
+            setOutput(`Evaluation failed: ${errorDetail}`);
+            setIsError(true);
+          }
+        }
+      }
     } catch (error: any) {
       console.error('Submission error:', error);
       setIsError(true);
-      setOutput(error.response?.data?.message || error.message || 'Error submitting code');
+      setOutput(safeStringify(error.response?.data || error));
     } finally {
       setIsSubmitting(false);
     }
